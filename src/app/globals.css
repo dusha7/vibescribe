@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  * { -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; overscroll-behavior: none; }
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+}
+@layer utilities {
+  .safe-area-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .text-gradient { @apply bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent; }
+  .glass { @apply bg-white/5 backdrop-blur-sm border border-white/8; }
+}
