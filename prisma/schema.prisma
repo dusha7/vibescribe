@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum SubscriptionTier { FREE VIBE_PASS VIBE_PASS_ULTRA }
+enum TransactionType { CREDIT_PURCHASE CREDIT_PROMO DEBIT_TEXT_GEN DEBIT_AUDIO_RENDER SUBSCRIPTION_GRANT CREDIT_REFUND }
+enum TransactionStatus { PENDING CONFIRMED FAILED REVERSED }
+enum StoryStatus { DRAFT ACTIVE ARCHIVED DELETED }
+enum ContentMode { SAFE UNCENSORED }
+enum StoryFormat { FLASH STANDARD EPIC }
+enum Genre { HORROR ROMANCE CYBERPUNK FANTASY THRILLER MYSTERY }
+enum Trope { ENEMIES_TO_LOVERS SLOW_BURN FAKE_DATING FOUND_FAMILY CHOSEN_ONE FORBIDDEN_LOVE }
+enum ChapterStatus { GENERATING COMPLETE AUDIO_PENDING AUDIO_READY ERROR }
+enum AudioSegmentType { NARRATION DIALOGUE INTERNAL_MONOLOGUE }
+enum AudioSegmentStatus { PENDING PROCESSING READY FAILED }
+enum SubscriptionStatus { ACTIVE PAST_DUE CANCELED TRIALING }
+model User {
+  id             String   @id @default(cuid())
+  email          String?  @unique
+  phone          String?  @unique
+  displayName    String?
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastActiveAt   DateTime @default(now())
+  wallet         Wallet?
+  subscription   Subscription?
+  stories        Story[]
+}
+model Wallet {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balanceSparks Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  transactions  LedgerEntry[]
+}
+model LedgerEntry {
+  id             String            @id @default(cuid())
+  walletId       String
+  wallet         Wallet            @relation(fields: [walletId], references: [id])
+  type           TransactionType
+  status         TransactionStatus @default(PENDING)
+  amountSparks   Int
+  description    String?
+  stripeReference String?          @unique
+  jobReference   String?
+  idempotencyKey String            @unique @default(cuid())
+  createdAt      DateTime          @default(now())
+  @@index([walletId])
+}
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+model Story {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  synopsis       String?     @db.Text
+  coverImageUrl  String?
+  genre          Genre[]
+  tropes         Trope[]
+  contentMode    ContentMode @default(SAFE)
+  status         StoryStatus @default(DRAFT)
+  creativityLevel Int        @default(70)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  chapters       Chapter[]
+  lorebook       LorebookEntry[]
+  @@index([userId])
+}
+model LorebookEntry {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  key       String
+  value     String   @db.Text
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([storyId, key])
+}
+model Chapter {
+  id               String        @id @default(cuid())
+  storyId          String
+  story            Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterNumber    Int
+  title            String?
+  format           StoryFormat   @default(STANDARD)
+  rawText          String?       @db.Text
+  wordCount        Int           @default(0)
+  modelUsed        String?
+  promptTokens     Int           @default(0)
+  completionTokens Int           @default(0)
+  sparksCost       Int           @default(0)
+  status           ChapterStatus @default(GENERATING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  audioSegments    AudioSegment[]
+  @@unique([storyId, chapterNumber])
+}
+model AudioSegment {
+  id             String             @id @default(cuid())
+  chapterId      String
+  chapter        Chapter            @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  segmentIndex   Int
+  segmentType    AudioSegmentType
+  speakerLabel   String?
+  voiceId        String?
+  text           String             @db.Text
+  wordTimestamps Json?
+  audioUrl       String?
+  audioDurationMs Int               @default(0)
+  status         AudioSegmentStatus @default(PENDING)
+  createdAt      DateTime           @default(now())
+  @@index([chapterId])
+}
