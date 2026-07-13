@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,16 +9,24 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String?   @unique
-  name      String?
-  image     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  accounts  Account[]
-  sessions  Session[]
-  stories   Story[]
-  wallet    Wallet?
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  sparks        Int       @default(0)
+  inks          Int       @default(0)
+  referralCode  String?
+  referredBy    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts     Account[]
+  sessions     Session[]
+  stories      Story[]
+  transactions Transaction[]
+  characters   Character[]
 }
 
 model Account {
@@ -33,7 +42,9 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
 }
 
@@ -49,39 +60,65 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
-model Wallet {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  balanceSparks Int      @default(50)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
 model Story {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  chapters  Chapter[]
-  @@index([userId])
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  content     String?  @db.Text
+  genre       String?
+  format      String?
+  prompt      String?  @db.Text
+  tropes      String?
+  ageRating   String?  @default("adults")
+  style       String?  @default("literary")
+  protagonist String?
+  setting     String?
+  conflict    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Chapter {
-  id            String   @id @default(cuid())
-  storyId       String
-  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  chapterNumber Int
-  rawText       String?  @db.Text
-  wordCount     Int      @default(0)
-  status        String   @default("GENERATING")
-  sparksCost    Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  @@unique([storyId, chapterNumber])
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Int
+  type        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Character {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  age        String?
+  appearance String?  @db.Text
+  race       String?
+  profession String?
+  traits     String?  @db.Text
+  backstory  String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+  @@index([email])
+  @@index([token])
 }
